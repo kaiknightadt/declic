@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histoires Inattendues</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Histoires Inattendues</h1>
+        </header>
+
+        <main>
+            <div class="story-container" id="storyContainer" style="display: none;">
+                <div class="story-meta">
+                    <p id="photoDescription" class="photo-description"></p>
+                </div>
+                <div class="story-content">
+                    <h2 id="storyTitle"></h2>
+                    <p id="storyText"></p>
+                </div>
+            </div>
+
+            <div class="loading-container" id="loadingContainer" style="display: none;">
+                <div class="spinner"></div>
+                <p class="loading-text">L'histoire se tisse...</p>
+            </div>
+
+            <div class="button-container" id="buttonContainer">
+                <label class="photo-button">
+                    <input type="file" id="photoInput" accept="image/*" capture="environment">
+                    <span>Prendre une photo</span>
+                </label>
+            </div>
+
+            <div class="action-buttons" id="actionButtons" style="display: none;">
+                <button id="newPhotoBtn" class="action-button primary">Encore</button>
+                <button id="saveBtn" class="action-button secondary">Sauvegarder</button>
+            </div>
+        </main>
+
+        <section class="gallery" id="gallerySection" style="display: none;">
+            <h2>Vos histoires</h2>
+            <div class="stories-gallery" id="storiesGallery"></div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
