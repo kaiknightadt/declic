@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import base64
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
@@ -77,10 +78,36 @@ STYLE :
 Tu ne dis JAMAIS "sur cette photo je vois". Tu commences directement.
 
 FORMAT DE RÉPONSE :
-Ta réponse DOIT être au format JSON valide sur une seule ligne :
+Ta réponse DOIT être au format JSON valide sur une seule ligne, SANS backticks, SANS ```json :
 {"description": "Photo montrant ...", "format": "récit|haiku|poésie|dialogue", "title": "Titre", "story": "Le contenu..."}
 La description doit être neutre et courte (max 15 mots).
 Dans "story", utilise \\n pour les retours à la ligne."""
+
+
+def parse_json_response(text):
+    """Parse JSON robuste — gère les backticks markdown et autres artefacts."""
+    # Supprime les backticks markdown si présents
+    text = text.strip()
+    text = re.sub(r'^```(?:json)?\s*', '', text)
+    text = re.sub(r'\s*```$', '', text)
+    text = text.strip()
+    
+    # Tente le parse direct
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    
+    # Cherche le premier { ... } dans le texte
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group())
+        except json.JSONDecodeError:
+            pass
+    
+    # Dernier recours : retourne le texte brut
+    return None
 
 
 @app.route("/")
@@ -121,7 +148,7 @@ def generate_story():
                         },
                         {
                             "type": "text",
-                            "text": "Crée une histoire inattendue inspirée par cette image. Réponds en JSON strictement au format : {\"description\": \"Photo montrant ...\", \"title\": \"Titre\", \"story\": \"L'histoire...\"}",
+                            "text": 'Crée une histoire inattendue inspirée par cette image. Réponds UNIQUEMENT en JSON valide (sans backticks) : {"description": "Photo montrant ...", "format": "récit|haiku|poésie|dialogue", "title": "Titre", "story": "L\'histoire..."}',
                         }
                     ],
                 }
@@ -130,26 +157,29 @@ def generate_story():
 
         story_response = message.content[0].text
         
-        # Parse the JSON response
-        try:
-            parsed = json.loads(story_response)
+        # Parse the JSON response (robuste)
+        parsed = parse_json_response(story_response)
+        
+        if parsed:
             photo_description = parsed.get("description", "Photo sans description")
+            story_format = parsed.get("format", "récit")
             story_title = parsed.get("title", "Histoire Sans Titre")
             story_text = parsed.get("story", "Pas d'histoire")
-        except json.JSONDecodeError:
-            # Fallback if response is not JSON
+        else:
+            # Fallback si parsing impossible
             photo_description = "Photo sans description"
+            story_format = "récit"
             story_title = "Histoire Sans Titre"
             story_text = story_response
 
-        # Save to Supabase if available
+        # Save to Supabase — SANS l'image base64 (trop lourd, cause des échecs)
         if supabase:
             try:
-                response = supabase.table("stories").insert({
-                    "image_data": image_data,
+                supabase.table("stories").insert({
                     "photo_description": photo_description,
                     "story_title": story_title,
-                    "story_text": story_text
+                    "story_text": story_text,
+                    "story_format": story_format
                 }).execute()
             except Exception as e:
                 print(f"Error saving to Supabase: {e}")
@@ -158,6 +188,7 @@ def generate_story():
             "story": story_text,
             "title": story_title,
             "description": photo_description,
+            "format": story_format,
             "success": True
         })
 
